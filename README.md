@@ -13,7 +13,23 @@ an interactive bot mode for managing everything from your phone.
 - **Filters**: KYC toggle, min bounty, age limit, language/ecosystem whitelist, keyword blacklist
 - **State persistence**: atomic writes, recoverable from corruption
 - **HTTP retry**: exponential backoff on transient errors
-- **65 tests**, atomic state writes, scope-change notifications
+- **70 tests**, atomic state writes, scope-change notifications
+
+## Integration with target-data-extractor
+
+bounty-monitor uses [target-data-extractor](https://github.com/AbD02018/target-data-extractor)
+as a fallback enricher for platforms without native detail scrapers
+(intigriti, bugrap, hackenproof, hackerone). The bridge module
+`monitor/enrich_bridge.py` decides per-platform:
+
+```python
+from monitor.enrich_bridge import smart_enrich
+smart_enrich(program, timeout=60)  # returns True if scope was updated
+```
+
+Native scrapers (immunefi, bugcrowd, yeswehack) are tried first because they
+are faster. If the native scraper returns nothing, target-data-extractor
+takes over with its anti-bot bypass layer (curl_cffi → cloudscraper → playwright).
 
 ## Quick start
 
