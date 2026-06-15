@@ -1,0 +1,61 @@
+{
+  "telegram": {
+    "bot_token": "YOUR_BOT_TOKEN_FROM_BOTFATHER",
+    "chat_id": "YOUR_CHAT_ID",
+    "parse_mode": "HTML",
+    "disable_web_page_preview": false
+  },
+  "platforms": {
+    "immunefi": {
+      "enabled": true,
+      "url": "https://immunefi.com/explore"
+    },
+    "bugcrowd": {
+      "enabled": true,
+      "url": "https://bugcrowd.com/engagements.json"
+    },
+    "yeswehack": {
+      "enabled": true,
+      "url": "https://api.yeswehack.com/programs"
+    },
+    "hackenproof": {
+      "enabled": true,
+      "url": "https://hackenproof.com/programs"
+    },
+    "hackerone": {
+      "enabled": false,
+      "url": "https://hackerone.com/directory/programs",
+      "_note": "HackerOne requires auth for full data. Disabled by default."
+    },
+    "bugrap": {
+      "enabled": false,
+      "url": "https://bugrap.io/programs",
+      "_note": "BugRap requires JS rendering. Disabled by default."
+    },
+    "integrity": {
+      "enabled": false,
+      "url": "https://integrity.dev",
+      "_note": "Integrity platform URL unconfirmed. Disabled by default."
+    }
+  },
+  "request": {
+    "timeout_seconds": 30,
+    "user_agent": "Mozilla/5.0 (BugBountyMonitor/1.0)",
+    "delay_between_platforms_seconds": 2
+  },
+  "filters": {
+    "_comment": "Configure which programs to notify about. Empty/0 = no filter applied.",
+    "include_kyc": false,
+    "min_bounty": 0,
+    "launch_within_days": 0,
+    "blacklist_keywords": [],
+    "whitelist_languages": [],
+    "whitelist_ecosystems": []
+  },
+  "enrichment": {
+    "_comment": "Fetch detail pages to extract scope, out-of-scope, severity tiers.",
+    "enabled": true,
+    "fetch_timeout": 15,
+    "cache_hours": 24
+  }
+}
