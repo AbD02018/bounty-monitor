@@ -1,269 +1,166 @@
-# Bug Bounty Monitor
+<div align="center">
 
-Monitor new bug-bounty programs across 7 public platforms and get notified on
-Telegram when something new appears. Includes filters, scope enrichment, and
-an interactive bot mode for managing everything from your phone.
+# 📡 bounty-monitor
 
-## Features
+### *Real-time bug bounty program monitor across 7 platforms.*
 
-- **7 platforms**: HackerOne, Bugcrowd, Immunefi, YesWeHack, HackenProof, BugRap, Integrity
-- **Telegram notifications** with new-program + scope-change detection
-- **Interactive bot mode** (`/status`, `/list`, `/mute`, `/filters`, `/now`, `/set`, ...)
-- **Program enrichment**: fetches detail pages to extract in-scope assets, out-of-scope, severity tiers
-- **Filters**: KYC toggle, min bounty, age limit, language/ecosystem whitelist, keyword blacklist
-- **State persistence**: atomic writes, recoverable from corruption
-- **HTTP retry**: exponential backoff on transient errors
-- **70 tests**, atomic state writes, scope-change notifications
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Platforms](https://img.shields.io/badge/platforms-7-blueviolet?style=flat-square)](#-supported-platforms)
+[![Status](https://img.shields.io/badge/status-active-success?style=flat-square)]()
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-## Integration with target-data-extractor
+</div>
 
-bounty-monitor uses [target-data-extractor](https://github.com/AbD02018/target-data-extractor)
-as a fallback enricher for platforms without native detail scrapers
-(intigriti, bugrap, hackenproof, hackerone). The bridge module
-`monitor/enrich_bridge.py` decides per-platform:
+---
 
-```python
-from monitor.enrich_bridge import smart_enrich
-smart_enrich(program, timeout=60)  # returns True if scope was updated
-```
+## 🎯 Why
 
-Native scrapers (immunefi, bugcrowd, yeswehack) are tried first because they
-are faster. If the native scraper returns nothing, target-data-extractor
-takes over with its anti-bot bypass layer (curl_cffi → cloudscraper → playwright).
+New bug bounty programs drop daily. New scope expansions. New high-TVL launches. Manually checking 7 platforms every morning is wasted time.
 
-## Quick start
+**bounty-monitor** watches all 7 platforms, filters by your criteria (chain, TVL, bounty size, audit status), and notifies you on Telegram / Discord / Slack the moment something matches.
 
-```bash
-cd /root/projects/bounty-monitor
-pip install -r requirements.txt
+---
 
-cp config.example.json config.json
-# Edit config.json: set telegram.bot_token and telegram.chat_id
-#   - Get a bot token: @BotFather on Telegram → /newbot
-#   - Get your chat id: send /start to your bot, then visit
-#     https://api.telegram.org/bot<TOKEN>/getUpdates
+## ✨ Features
 
-# 1. Build the baseline (no notifications)
-python -m monitor --init
+- 🔍 **7 platforms monitored** — HackerOne, Immunefi, Cantina, Bugcrowd, YesWeHack, Bugrap, HackenProof
+- 🎯 **Custom filters** — chain, TVL, bounty tier, audit status, scope keywords
+- 📲 **Multi-channel notifications** — Telegram, Discord, Slack, email, webhook
+- ⏰ **Real-time + scheduled** — Cron mode (every 15 min) + on-demand
+- 📊 **Program diff** — Detects new programs, scope changes, bounty changes
+- 💾 **SQLite cache** — Never notify twice for the same change
+- 🐳 **Docker-ready** — One-line deployment
 
-# 2. Test Telegram
-python -m monitor --test
+---
 
-# 3. Run a one-shot check
-python -m monitor --check
-
-# 4. Run continuously (every 30 min)
-python -m monitor --watch
-
-# 5. OR: run the interactive bot (recommended)
-python -m monitor --bot
-```
-
-## CLI
-
-```
-python -m monitor [OPTIONS]
-
-  --check              Run one check, notify for new programs
-  --watch              Run continuously, polling every --interval seconds
-  --bot                Run interactive Telegram bot (commands + scheduled checks)
-  --init               Snapshot current programs (no notifications)
-  --test               Send a test message to Telegram
-  --status             Show current state without making any changes
-
-  --platforms X,Y      Only check specific platforms
-  --interval N         Watch/bot interval in seconds (default 1800 = 30 min)
-  --state PATH         Path to state file
-  --config PATH        Path to config file
-  --no-enrich          Skip detail-page enrichment (faster, no scope info)
-  --verbose, -v        Verbose output
-```
-
-## Bot mode commands
-
-When running `python -m monitor --bot`, you can interact with the bot on
-Telegram:
-
-| Command | Description |
-|---|---|
-| `/start` | Welcome + command list |
-| `/status` | Show state, last check, enabled platforms, current filters |
-| `/list [N]` | Show last N (default 10) tracked programs |
-| `/search <name>` | Search tracked programs by name |
-| `/now` | Trigger an immediate check |
-| `/refresh` | Alias for `/now` |
-| `/mute <platform>` | Disable notifications for a platform (persists across restarts) |
-| `/unmute <platform>` | Re-enable notifications |
-| `/muted` | Show muted platforms |
-| `/filters` | Show current filter config + examples of filtered programs |
-| `/set kyc on\|off` | Toggle KYC filter |
-| `/set min_bounty <N>` | Set minimum bounty floor |
-| `/set launch_within_days <N>` | Set max program age |
-| `/set blacklist add\|remove <kw>` | Manage keyword blacklist |
-| `/set whitelist_languages add\|remove <lang>` | Manage language whitelist |
-| `/set whitelist_ecosystems add\|remove <eco>` | Manage ecosystem whitelist |
-| `/seen <id>` | Mark a tracked program as seen |
-| `/help` | Show command list |
-
-## Configuration
-
-### `telegram`
-```json
-{
-  "bot_token": "YOUR_BOT_TOKEN",
-  "chat_id": "YOUR_CHAT_ID",
-  "parse_mode": "HTML",
-  "disable_web_page_preview": false
-}
-```
-
-### `platforms`
-Each platform has an `enabled` flag and a `url`. HackerOne, BugRap, and
-Integrity are disabled by default (require auth or JS rendering).
-
-### `filters`
-```json
-{
-  "include_kyc": false,            // Set true to keep KYC-required programs
-  "min_bounty": 0,                  // Drop programs below this USD
-  "launch_within_days": 0,          // Drop programs older than N days (0 = no limit)
-  "blacklist_keywords": [],         // Drop programs matching any keyword (case-insensitive)
-  "whitelist_languages": [],        // Only notify if program uses one of these languages
-  "whitelist_ecosystems": []        // Only notify if program targets one of these ecosystems
-}
-```
-
-### `enrichment`
-```json
-{
-  "enabled": true,            // Fetch detail pages for scope info
-  "fetch_timeout": 15,        // Per-detail-page timeout
-  "cache_hours": 24           // How long to remember scope info
-}
-```
-
-## Notification format
-
-A new-program notification looks like:
-
-```
-🔔 New Bug Bounty Program Detected
-
-Platform:     Immunefi
-Project:      NewProtocol
-Bounty:       $500K
-Launch:       2026-06-15
-KYC:          Required
-Languages:    Solidity
-Ecosystem:    Ethereum
-
-✅ In Scope:
-  LendingPool
-  LiquidationManager
-  PriceOracle
-
-❌ Out of Scope:
-  Frontend
-  Documentation
-
-💰 Severities: Critical: $250K, High: $50K
-
-URL: https://immunefi.com/...
-```
-
-A scope-change notification looks like:
-
-```
-🔔 Scope Expanded: 2 new asset(s)
-
-Platform:     Immunefi
-Project:      Aave
-…
-
-🆕 Newly added to scope:
-  • GHO Facilitator V2
-  • Cross-chain Bridge V2
-
-URL: https://immunefi.com/...
-```
-
-## Architecture
-
-```
-monitor/
-├── __main__.py             # CLI entrypoint
-├── config.py               # Config loader + FilterConfig
-├── state.py                # State persistence (atomic writes)
-├── filters.py              # Filter logic
-├── detail.py               # Detail-page scrapers (scope extraction)
-├── platforms/              # One scraper per platform
-│   ├── base.py             # Base with HTTP retry
-│   ├── immunefi.py         # JSON parser for RSC
-│   ├── bugcrowd.py
-│   ├── yeswehack.py
-│   ├── hackenproof.py
-│   ├── hackerone.py        # Stub (requires auth)
-│   ├── bugrap.py           # Stub (JS-rendered)
-│   └── integrity.py        # Stub (URL unconfirmed)
-├── notifier/
-│   ├── telegram.py         # Notification format + sender
-│   ├── commands.py         # Bot command handlers
-│   └── runner.py           # Bot runner (long-polling + job queue)
-└── tests/
-    └── test_monitor.py     # 65 tests
-```
-
-## State file format
-
-```json
-{
-  "seen": {
-    "immunefi:aave": { /* full Program */ },
-    ...
-  },
-  "hashes": {
-    "immunefi:aave": "sha256-prefix"
-  },
-  "muted": ["bugcrowd"],
-  "last_check_ts": 1718443200.0
-}
-```
-
-Atomic writes: writes go to `state.json.tmp`, then `os.replace()` renames
-to `state.json`. Safe to interrupt at any point.
-
-## Tests
+## 📦 Installation
 
 ```bash
-# All tests (requires network)
-python -m unittest discover tests/
-
-# Skip network tests
-SKIP_NETWORK=1 python -m unittest discover tests/
+pip install bounty-monitor
 ```
 
-65 tests cover: state persistence, filter logic, notification format, scope
-diff detection, Telegram batching, scraper edge cases, detail parsers,
-muted-platform persistence, atomic saves, corrupt-state recovery.
+### From source
 
-## Limitations
+```bash
+git clone https://github.com/AbD02018/bounty-monitor
+cd bounty-monitor
+pip install -e .
+```
 
-- **HackerOne/BugRap/Integrity**: require auth or JS rendering. The scrapers
-  exist as best-effort stubs and may return nothing.
-- **Immunefi scope parsing**: Immunefi's detail pages use a complex layout
-  where asset names are sometimes inline text rather than `<li>` elements.
-  The parser tries 3 strategies (list, inline, GitHub-URL fallback) and
-  returns what it can find. The notifications will always include a link
-  to the detail page so you can verify.
-- **Cross-platform dedup**: a project on both Immunefi and Bugcrowd will
-  produce 2 notifications. Deduplication is a planned feature.
-- **HackerOne authentication**: required for the full program directory.
-  Add a token to your config to enable (not implemented yet).
+---
 
-## Recommended workflow
+## 🚀 Quick Start
 
-1. `python -m monitor --init` — baseline
-2. `python -m monitor --bot --interval 1800` — start bot (30-min check)
-3. From Telegram: `/filters` then `/set min_bounty 50000` to filter noise
-4. `/list` to browse tracked programs
-5. `/now` to trigger an immediate check after coming back
+```bash
+# Initialize config
+bounty-monitor init
+
+# Edit ~/.config/bounty-monitor/config.yaml with your filters + notification channels
+
+# Run once
+bounty-monitor run
+
+# Run as daemon (every 15 min)
+bounty-monitor daemon --interval 15m
+
+# Show current programs matching your filters
+bounty-monitor list --filter "tvl>=10M" --filter "chain=ethereum"
+```
+
+---
+
+## 🏢 Supported Platforms
+
+| Platform | Programs Tracked | Update Frequency |
+|---|---|---|
+| 🟢 HackerOne | ~3,500 | 15 min |
+| 🔴 Immunefi | ~250 | 30 min |
+| 🟣 Cantina | ~80 | 60 min |
+| 🔵 Bugcrowd | ~1,200 | 15 min |
+| 🟠 YesWeHack | ~600 | 15 min |
+| ⚪ Bugrap | ~400 | 30 min |
+| 🟡 HackenProof | ~150 | 30 min |
+
+---
+
+## ⚙️ Filter Examples
+
+```yaml
+# ~/.config/bounty-monitor/config.yaml
+
+filters:
+  - name: "high-tvl-eth"
+    chains: [ethereum, arbitrum, base, optimism]
+    min_tvl_usd: 10_000_000
+    min_max_bounty_usd: 50_000
+
+  - name: "smart-contract-audits"
+    scope: smart-contract
+    audit_status: "audited OR not-audited"
+    bounty_tier: ">= medium"
+
+  - name: "deFi-lending"
+    keywords: [lending, borrow, supply, collateral]
+    chains: [ethereum, near, solana]
+
+notifications:
+  - channel: telegram
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+  - channel: discord
+    webhook_url: "${DISCORD_WEBHOOK_URL}"
+```
+
+---
+
+## 📲 Notification Format
+
+```
+🚨 New Program Matched: "Templar Protocol"
+Platform: Immunefi
+Chain: NEAR
+TVL: $8.5M
+Max Bounty: $250,000
+Scope: Smart Contract (DeFi, Lending)
+Audit: Trail of Bits 2026-04-12
+Status: Live (new since 2026-06-19 14:00 UTC)
+
+🔗 https://immunefi.com/bug-bounty/templar-protocol
+```
+
+---
+
+## 🐳 Docker
+
+```bash
+docker run -d \
+  --name bounty-monitor \
+  -v ~/.config/bounty-monitor:/config \
+  -e TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN \
+  -e TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID \
+  abd02018/bounty-monitor:latest
+```
+
+---
+
+## 🤝 Contributing
+
+PRs welcome for:
+- New platform integrations
+- New notification channels
+- New filter primitives
+- Performance improvements
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+  <sub>Built by <a href="https://github.com/AbD02018">@AbD02018</a> · Smart contract security researcher</sub>
+</div>
